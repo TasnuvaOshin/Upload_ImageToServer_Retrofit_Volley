@@ -1,6 +1,7 @@
 package tasnuvaoshin.com.retrofitcameraprogram;
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -45,10 +46,11 @@ public class MainActivity extends AppCompatActivity {
     private static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
     private Button camera, gallary;
     private ImageView imageView;
-    private String upload_URL = "http://joy-technologies-ltd.com/test/upload.php";
-    JSONObject jsonObject;
-    RequestQueue rQueue;
+    //    private String upload_URL = "http://joy-technologies-ltd.com/test/upload.php";
+//    JSONObject jsonObject;
+//    RequestQueue rQueue;
     OurRetrofitClient ourRetrofitClient;
+    private ProgressDialog progressDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,7 +63,8 @@ public class MainActivity extends AppCompatActivity {
         Retrofit retrofit = new Retrofit.Builder().baseUrl("http://joy-technologies-ltd.com/test/").addConverterFactory(GsonConverterFactory.create()).build();
         ourRetrofitClient = retrofit.create(OurRetrofitClient.class);
 
-
+        progressDialog = new ProgressDialog(MainActivity.this);
+        progressDialog.setMessage("Image Uploading ...");
         camera.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -95,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
                     Bitmap bitmap = (Bitmap) imageReturnedIntent.getExtras().get("data");
                     imageView.setImageBitmap(bitmap);
                     //  uploadImage(bitmap);
+                    progressDialog.show();
                     uploadImageRetrofit(bitmap);
                 }
 
@@ -108,8 +112,9 @@ public class MainActivity extends AppCompatActivity {
                         Bitmap bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), selectedImage);
                         // uploadImage(bitmap);
                         uploadImageRetrofit(bitmap);
-                        Toast.makeText(this, "Ready to Upload", Toast.LENGTH_SHORT).show();
                         imageView.setImageURI(selectedImage);
+                        progressDialog.show();
+                        uploadImageRetrofit(bitmap);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -135,58 +140,64 @@ public class MainActivity extends AppCompatActivity {
 
                 if (response.code() == 200) {
                     Log.d("response", "Successfully Uploaded");
-                    Toast.makeText(MainActivity.this, "Successfully Uploaded", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Successfully Uploaded", Toast.LENGTH_LONG).show();
+                    progressDialog.dismiss();
                 } else {
-                    Log.d("response", "fail");
+                    Toast.makeText(MainActivity.this, "Failed To Upload", Toast.LENGTH_LONG).show();
+
+                    Log.d("response", "failed");
+                    progressDialog.dismiss();
                 }
             }
 
             @Override
             public void onFailure(Call<ResponseClass> call, Throwable t) {
+                Toast.makeText(MainActivity.this, "Failed To Upload", Toast.LENGTH_LONG).show();
                 Log.d("response", "Failed");
+                progressDialog.dismiss();
 
             }
         });
     }
 
 
-    //through volley
-    private void uploadImage(Bitmap bitmap) {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
-        String encodedImage = Base64.encodeToString(byteArrayOutputStream.toByteArray(), Base64.DEFAULT);
-        try {
-            jsonObject = new JSONObject();
-            String imgname = String.valueOf(Calendar.getInstance().getTimeInMillis());
-            Log.d("name", imgname);
-            jsonObject.put("name", imgname);
-            //  Log.e("Image name", etxtUpload.getText().toString().trim());
-            jsonObject.put("image", encodedImage);
-            // jsonObject.put("aa", "aa");
-        } catch (JSONException e) {
-            Log.e("JSONObject Here", e.toString());
-        }
-
-        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST, upload_URL, jsonObject,
-                new com.android.volley.Response.Listener<JSONObject>() {
-                    @Override
-                    public void onResponse(JSONObject jsonObject) {
-                        Log.e("aaaaaaa", jsonObject.toString());
-                        rQueue.getCache().clear();
-                        Toast.makeText(getApplication(), "Image Uploaded Successfully", Toast.LENGTH_SHORT).show();
-                    }
-                }, new Response.ErrorListener() {
-
-            public void onErrorResponse(VolleyError volleyError) {
-                Log.e("aaaaaaa", volleyError.toString());
-
-            }
-        });
-
-        rQueue = Volley.newRequestQueue(MainActivity.this);
-        rQueue.add(jsonObjectRequest);
-
-    }
+//    //through volley
+//    private void uploadImage(Bitmap bitmap) {
+//        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+//        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
+//        String encodedImage = Base64.encodeToString(byteArrayOutputStream.toByteArray(), Base64.DEFAULT);
+//        try {
+//            jsonObject = new JSONObject();
+//            String imgname = String.valueOf(Calendar.getInstance().getTimeInMillis());
+//            Log.d("name", imgname);
+//            jsonObject.put("name", imgname);
+//            //  Log.e("Image name", etxtUpload.getText().toString().trim());
+//            jsonObject.put("image", encodedImage);
+//            // jsonObject.put("aa", "aa");
+//        } catch (JSONException e) {
+//            Log.e("JSONObject Here", e.toString());
+//        }
+//
+//        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST, upload_URL, jsonObject,
+//                new com.android.volley.Response.Listener<JSONObject>() {
+//                    @Override
+//                    public void onResponse(JSONObject jsonObject) {
+//                        Log.e("aaaaaaa", jsonObject.toString());
+//                        rQueue.getCache().clear();
+//                        Toast.makeText(getApplication(), "Image Uploaded Successfully", Toast.LENGTH_SHORT).show();
+//                    }
+//                }, new Response.ErrorListener() {
+//
+//            public void onErrorResponse(VolleyError volleyError) {
+//                Log.e("aaaaaaa", volleyError.toString());
+//
+//            }
+//        });
+//
+//        rQueue = Volley.newRequestQueue(MainActivity.this);
+//        rQueue.add(jsonObjectRequest);
+//
+//    }
 
 
     public boolean CheckPermission() {
