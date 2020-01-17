@@ -1,15 +1,5 @@
 package tasnuvaoshin.com.retrofitcameraprogram;
 
-import androidx.annotation.RequiresApi;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.OkHttpClient;
-import okhttp3.RequestBody;
-
 import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -17,7 +7,6 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
@@ -34,17 +23,23 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
-import com.google.gson.JsonObject;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.Calendar;
-import java.util.Objects;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity {
     private static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
@@ -53,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private String upload_URL = "http://joy-technologies-ltd.com/test/upload.php";
     JSONObject jsonObject;
     RequestQueue rQueue;
+    OurRetrofitClient ourRetrofitClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +58,9 @@ public class MainActivity extends AppCompatActivity {
         camera = findViewById(R.id.bt_camera);
         gallary = findViewById(R.id.bt_gallary);
         imageView = findViewById(R.id.image_view);
+        Retrofit retrofit = new Retrofit.Builder().baseUrl("http://joy-technologies-ltd.com/test/").addConverterFactory(GsonConverterFactory.create()).build();
+        ourRetrofitClient = retrofit.create(OurRetrofitClient.class);
+
 
         camera.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -95,7 +94,8 @@ public class MainActivity extends AppCompatActivity {
 
                     Bitmap bitmap = (Bitmap) imageReturnedIntent.getExtras().get("data");
                     imageView.setImageBitmap(bitmap);
-                    uploadImage(bitmap);
+                    //  uploadImage(bitmap);
+                    uploadImageRetrofit(bitmap);
                 }
 
                 break;
@@ -106,20 +106,51 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         Uri selectedImage = imageReturnedIntent.getData();
                         Bitmap bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), selectedImage);
-                        uploadImage(bitmap);
+                        // uploadImage(bitmap);
+                        uploadImageRetrofit(bitmap);
                         Toast.makeText(this, "Ready to Upload", Toast.LENGTH_SHORT).show();
                         imageView.setImageURI(selectedImage);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
 
-                    //      uploadImage(bitmap);
+                    ;
                 }
                 break;
         }
     }
 
-    //through volley 
+
+    private void uploadImageRetrofit(Bitmap bitmap) {
+
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
+        String encodedImage = Base64.encodeToString(byteArrayOutputStream.toByteArray(), Base64.DEFAULT);
+        String imgname = String.valueOf(Calendar.getInstance().getTimeInMillis());
+
+        Call<ResponseClass> classCall = ourRetrofitClient.UploadImage(imgname, encodedImage);
+        classCall.enqueue(new Callback<ResponseClass>() {
+            @Override
+            public void onResponse(Call<ResponseClass> call, retrofit2.Response<ResponseClass> response) {
+
+                if (response.code() == 200) {
+                    Log.d("response", "Successfully Uploaded");
+                    Toast.makeText(MainActivity.this, "Successfully Uploaded", Toast.LENGTH_SHORT).show();
+                } else {
+                    Log.d("response", "fail");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ResponseClass> call, Throwable t) {
+                Log.d("response", "Failed");
+
+            }
+        });
+    }
+
+
+    //through volley
     private void uploadImage(Bitmap bitmap) {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
@@ -172,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
                     Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                 new AlertDialog.Builder(MainActivity.this)
                         .setTitle("Permission")
-                        .setMessage("Please Share/on Your Location")
+                        .setMessage("Please accept the permissions")
                         .setPositiveButton("ok", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialogInterface, int i) {
@@ -205,19 +236,4 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
-    private Bitmap uriToBitmap(Uri selectedFileUri) {
-        try {
-            ParcelFileDescriptor parcelFileDescriptor =
-                    getContentResolver().openFileDescriptor(selectedFileUri, "r");
-            FileDescriptor fileDescriptor = parcelFileDescriptor.getFileDescriptor();
-            Bitmap image = BitmapFactory.decodeFileDescriptor(fileDescriptor);
-            parcelFileDescriptor.close();
-            return image;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
 }
